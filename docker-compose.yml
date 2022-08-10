@@ -1,0 +1,70 @@
+version: '3'
+
+services:
+
+  traefik:
+    image: traefik:v2.5
+    ports:
+      - 80:80
+      - 8080:8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./config:/etc/traefik
+    networks:
+      - huma-net
+
+  authentiq:
+    build: ./Services/auth/
+    restart: always
+    environment:
+      AUTHENTIQ_DB_HOST: authentiq-db
+      AUTHENTIQ_DB_PORT: 27017
+      AUTHENTIQ_DB_NAME: authentiq
+      AUTHENTIQ_DB_USERNAME: root
+      AUTHENTIQ_DB_PASSWORD: root
+      NODE_ENV: production
+    networks:
+      - huma-net
+    
+    depends_on:
+      - authentiq-db
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth.entrypoints=web"
+      - "traefik.http.services.auth.loadbalancer.server.port=2000"
+      - "traefik.http.routers.auth.rule=HOST(`authentiq`)"
+
+  authentiq-acc-mng:
+    build: ./Services/account-manager/
+    restart: always
+    environment:
+      HOST: localhost
+      PORT: 5000
+      AUTH_SERVER_ADDR: authentiq
+      AUTH_SERVER_PORT: 2000
+      MONGO_SERVER_ADDR: authentiq-db
+      MONGO_SERVER_PORT: 27017
+      DB_USER: root
+      DB_PASS: root
+    
+    networks:
+      - huma-net
+    depends_on:
+      - authentiq-db
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.acc-manager.entrypoints=web"
+      - "traefik.http.services.acc-manager.loadbalancer.server.port=5000"
+      - "traefik.http.routers.acc-manager.rule=HOST(`authentiq-acc-mng`)"
+
+  authentiq-db:
+    image: mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
+    networks:
+      - huma-net
+
+networks:
+  huma-net:
