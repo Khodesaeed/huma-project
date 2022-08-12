@@ -7,9 +7,11 @@ services:
     ports:
       - 80:80
       - 8080:8080
+      - 443:443
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./config:/etc/traefik
+      - traefik-ssl-certs:/ssl-certs
     networks:
       - huma-net
 
@@ -30,10 +32,12 @@ services:
       - authentiq-db
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.auth.entrypoints=web"
+      - "traefik.http.routers.auth.entrypoints=web,websecure"
       - "traefik.http.services.auth.loadbalancer.server.port=2000"
       - "traefik.http.routers.auth.rule=HOST(`auth.khodekazem.ir`)"
       - "traefik.http.routers.auth.service=auth"
+      - "traefik.http.routers.auth.tls=true"
+      - "traefik.http.routers.auth.tls.certresolver=production"
 
   acc-mng:
     build: ./Services/account-manager/
@@ -54,10 +58,12 @@ services:
       - authentiq-db
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.acc-mng.entrypoints=web"
+      - "traefik.http.routers.acc-mng.entrypoints=web,websecure"
       - "traefik.http.services.acc-mng.loadbalancer.server.port=5000"
       - "traefik.http.routers.acc-mng.rule=HOST(`acc-mng.khodekazem.ir`)"
       - "traefik.http.routers.acc-mng.service=acc-mng"
+      - "traefik.http.routers.acc-mng.tls=true"
+      - "traefik.http.routers.acc-mng.tls.certresolver=production"
 
   authentiq-db:
     image: mongo
@@ -70,3 +76,7 @@ services:
 
 networks:
   huma-net:
+
+volumes:
+    traefik-ssl-certs:
+        driver: local
