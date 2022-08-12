@@ -17,9 +17,9 @@ global:
 
 # (Optional) Enable API and Dashboard
 # ---
-api:
- dashboard: true  # true by default
- insecure: true  # Don't do this in production!
+# api:
+#  dashboard: true  # true by default
+#  insecure: true  # Don't do this in production!
 
 # Entry Points configuration
 # ---
@@ -58,6 +58,8 @@ certificatesResolvers:
 providers:
   docker:
     exposedByDefault: false  # Default is true
+    endpoint: "tcp://127.0.0.1:2377" # Uncomment this line on swarm mode
+    swarmMode: true                  # Uncomment this line on swarm mode
   file:
     # watch for dynamic configuration changes
     directory: /etc/traefik
