@@ -13,13 +13,13 @@ services:
     networks:
       - huma-net
 
-  authentiq:
+  auth:
     build: ./Services/auth/
     restart: always
     environment:
       AUTHENTIQ_DB_HOST: authentiq-db
       AUTHENTIQ_DB_PORT: 27017
-      AUTHENTIQ_DB_NAME: authentiq
+      AUTHENTIQ_DB_NAME: auth
       AUTHENTIQ_DB_USERNAME: root
       AUTHENTIQ_DB_PASSWORD: root
       NODE_ENV: production
@@ -32,15 +32,16 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.auth.entrypoints=web"
       - "traefik.http.services.auth.loadbalancer.server.port=2000"
-      - "traefik.http.routers.auth.rule=HOST(`authentiq`)"
+      - "traefik.http.routers.auth.rule=HOST(`auth.khodekazem.ir`)"
+      - "traefik.http.routers.auth.service=auth"
 
-  authentiq-acc-mng:
+  acc-mng:
     build: ./Services/account-manager/
     restart: always
     environment:
-      HOST: localhost
+      HOST: acc-mng.khodekazem.ir
       PORT: 5000
-      AUTH_SERVER_ADDR: authentiq
+      AUTH_SERVER_ADDR: auth
       AUTH_SERVER_PORT: 2000
       MONGO_SERVER_ADDR: authentiq-db
       MONGO_SERVER_PORT: 27017
@@ -53,9 +54,10 @@ services:
       - authentiq-db
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.acc-manager.entrypoints=web"
-      - "traefik.http.services.acc-manager.loadbalancer.server.port=5000"
-      - "traefik.http.routers.acc-manager.rule=HOST(`authentiq-acc-mng`)"
+      - "traefik.http.routers.acc-mng.entrypoints=web"
+      - "traefik.http.services.acc-mng.loadbalancer.server.port=5000"
+      - "traefik.http.routers.acc-mng.rule=HOST(`acc-mng.khodekazem.ir`)"
+      - "traefik.http.routers.acc-mng.service=acc-mng"
 
   authentiq-db:
     image: mongo
