@@ -57,8 +57,8 @@ certificatesResolvers:
 
 providers:
   docker:
-    exposedByDefault: false  # Default is true
-    endpoint: "tcp://127.0.0.1:2377" # Uncomment this line on swarm mode
+    # exposedByDefault: false  # Default is true
+    # endpoint: "tcp://37.32.25.6:2377" # Uncomment this line on swarm mode and change it to your docker swarm listening interface
     swarmMode: true                  # Uncomment this line on swarm mode
   file:
     # watch for dynamic configuration changes
