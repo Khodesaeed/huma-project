@@ -1,0 +1,122 @@
+version: '3'
+
+services:
+
+  traefik:
+    image: traefik:v2.5
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./config:/etc/traefik
+      - traefik-ssl-certs:/ssl-certs
+    networks:
+      - huma-in
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  auth:
+    image: auth-img
+    restart: always
+    environment:
+      AUTHENTIQ_DB_HOST: authentiq-db
+      AUTHENTIQ_DB_PORT: 27017
+      AUTHENTIQ_DB_NAME: auth
+      AUTHENTIQ_DB_USERNAME: /run/secrets/db_username
+      AUTHENTIQ_DB_PASSWORD: /run/secrets/db_password
+      NODE_ENV: production
+    networks:
+      - huma-in
+    
+    depends_on:
+      - authentiq-db
+
+    deploy:
+      mode: replicated
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.auth.entrypoints=web,websecure"
+        - "traefik.http.services.auth.loadbalancer.server.port=2000"
+        - "traefik.http.routers.auth.rule=HOST(`auth.khodekazem.ir`)"
+        - "traefik.http.routers.auth.service=auth"
+        - "traefik.http.routers.auth.tls=true"
+        - "traefik.http.routers.auth.tls.certresolver=production"
+        - "traefik.http.middlewares.test-ipwhitelist.ipwhitelist.sourcerange="
+
+  acc-mng:
+    image: acc-mng-img
+    restart: always
+    environment:
+      HOST: acc-mng.khodekazem.ir
+      PORT: 5000
+      AUTH_SERVER_ADDR: auth
+      AUTH_SERVER_PORT: 2000
+      MONGO_SERVER_ADDR: authentiq-db
+      MONGO_SERVER_PORT: 27017
+      DB_USER: /run/secrets/db_username
+      DB_PASS: /run/secrets/db_password
+    
+    networks:
+      - huma-in
+
+    depends_on:
+      - authentiq-db
+
+    deploy:
+      mode: replicated
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.acc-mng.entrypoints=web,websecure"
+        - "traefik.http.services.acc-mng.loadbalancer.server.port=5000"
+        - "traefik.http.routers.acc-mng.rule=HOST(`acc-mng.khodekazem.ir`)"
+        - "traefik.http.routers.acc-mng.service=acc-mng"
+        - "traefik.http.routers.acc-mng.tls=true"
+        - "traefik.http.routers.acc-mng.tls.certresolver=production"
+        - "traefik.http.middlewares.test-ipwhitelist.ipwhitelist.sourcerange="
+
+
+  authentiq-db:
+    image: mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: /run/secrets/db_username
+      MONGO_INITDB_ROOT_PASSWORD: /run/secrets/db_password
+    networks:
+      - huma-in
+
+  visualizer:
+    image: dockersamples/visualizer:stable
+    ports:
+      - 8080:8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    deploy:
+      placement: 
+        constraints: 
+          - node.role != manager
+    networks:
+      - huma-in
+
+networks:
+  huma-in:
+    driver: overlay
+    internal: true
+
+volumes:
+    traefik-ssl-certs:
+        driver: local
+secrets:
+  db_username:
+    external: true
+  db_password:
+    external: true
+
