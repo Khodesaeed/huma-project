@@ -1,8 +1,9 @@
-version: '3'
+version: '3.9'
 
 services:
 
   traefik:
+    restart: "always"
     image: traefik:v2.5
     ports:
       - 80:80
@@ -17,28 +18,45 @@ services:
       placement:
         constraints:
           - node.role == manager
+            #       labels:
+            #         - "traefik.enable=true"
+            #         - "com.containous.traefikee.component=traefik"
+            #         - "traefik.http.routers.dashboard.entrypoints=web,websecure"
+            #         - "traefik.http.services.dummy-svc.loadbalancer.server.port=9999"
+            #         - "traefik.http.routers.dashboard.rule=HOST(`dashboard.khodekazem.ir`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
+            #         - "traefik.http.routers.dashboard.service=api@internal"
+            #         - "traefik.http.routers.dashboard.entrypoints=internal"
+            #         - "traefik.http.routers.dashboard.tls=true"
+            #         - "traefik.http.routers.dashboard.tls.certresolver=production"
+            #         - "traefik.http.middlewares.dashboard.ipwhitelist.sourcerange=0.0.0.0/0"
+            #         - "traefik.http.routers.dashboard.middlewares=auth"
+            #         - "traefik.http.middlewares.dashboard.basicauth.users=admin:$apr1$Ojrlhq90$hU3X7PvXES53j4XMCcHFb."
+            #         - "visualizer.autoupdate=true"
 
   auth:
     image: auth-img
-    restart: always
+    restart: "always"
+    secrets:
+      - db_username
+      - db_password
     environment:
       AUTHENTIQ_DB_HOST: authentiq-db
       AUTHENTIQ_DB_PORT: 27017
       AUTHENTIQ_DB_NAME: auth
-      AUTHENTIQ_DB_USERNAME: /run/secrets/db_username
-      AUTHENTIQ_DB_PASSWORD: /run/secrets/db_password
+      AUTHENTIQ_DB_USERNAME_FILE: /run/secrets/db_username
+      AUTHENTIQ_DB_PASSWORD_FILE: /run/secrets/db_password
       NODE_ENV: production
     networks:
       - huma-in
-    
     depends_on:
       - authentiq-db
-
     deploy:
       mode: replicated
       replicas: 2
       restart_policy:
         condition: on-failure
+          # placement:
+            # max_replicas_per_node: 1
       labels:
         - "traefik.enable=true"
         - "traefik.http.routers.auth.entrypoints=web,websecure"
@@ -47,11 +65,15 @@ services:
         - "traefik.http.routers.auth.service=auth"
         - "traefik.http.routers.auth.tls=true"
         - "traefik.http.routers.auth.tls.certresolver=production"
-        - "traefik.http.middlewares.test-ipwhitelist.ipwhitelist.sourcerange="
+        - "traefik.http.middlewares.test-ipwhitelist.ipwhitelist.sourcerange=0.0.0.0/0"
+        - "visualizer.autoupdate=true"
 
   acc-mng:
     image: acc-mng-img
-    restart: always
+    restart: "always"
+    secrets:
+      - db_username
+      - db_password
     environment:
       HOST: acc-mng.khodekazem.ir
       PORT: 5000
@@ -59,20 +81,19 @@ services:
       AUTH_SERVER_PORT: 2000
       MONGO_SERVER_ADDR: authentiq-db
       MONGO_SERVER_PORT: 27017
-      DB_USER: /run/secrets/db_username
-      DB_PASS: /run/secrets/db_password
-    
+      DB_USER_FILE: /run/secrets/db_username
+      DB_PASS_FILE: /run/secrets/db_password
     networks:
       - huma-in
-
     depends_on:
       - authentiq-db
-
     deploy:
       mode: replicated
       replicas: 2
       restart_policy:
         condition: on-failure
+          # placement:
+            # max_replicas_per_node: 1
       labels:
         - "traefik.enable=true"
         - "traefik.http.routers.acc-mng.entrypoints=web,websecure"
@@ -81,28 +102,46 @@ services:
         - "traefik.http.routers.acc-mng.service=acc-mng"
         - "traefik.http.routers.acc-mng.tls=true"
         - "traefik.http.routers.acc-mng.tls.certresolver=production"
-        - "traefik.http.middlewares.test-ipwhitelist.ipwhitelist.sourcerange="
-
+        - "traefik.http.middlewares.test-ipwhitelist.ipwhitelist.sourcerange=0.0.0.0/0"
+        - "visualizer.autoupdate=true"
 
   authentiq-db:
     image: mongo
-    restart: always
+    restart: "always"
+    secrets:
+      - db_username
+      - db_password
     environment:
-      MONGO_INITDB_ROOT_USERNAME: /run/secrets/db_username
-      MONGO_INITDB_ROOT_PASSWORD: /run/secrets/db_password
+      MONGO_INITDB_ROOT_USERNAME_FILE: /run/secrets/db_username
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/db_password
     networks:
       - huma-in
+    deploy:
+      labels:
+        - "visualizer.autoupdate=true"
 
   visualizer:
-    image: dockersamples/visualizer:stable
-    ports:
-      - 8080:8080
+    image: yandeu/visualizer:dev
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      VISUALIZER_TYPE: "manager"
     deploy:
-      placement: 
-        constraints: 
-          - node.role != manager
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        - visualizer.manager
+        - "traefik.enable=true"
+        - "traefik.http.routers.visualizer.entrypoints=web,websecure"
+        - "traefik.http.services.visualizer.loadbalancer.server.port=3500"
+        - "traefik.http.routers.visualizer.rule=HOST(`service-visualizer.khodekazem.ir`)"
+        - "traefik.http.routers.visualizer.service=visualizer"
+        - "traefik.http.routers.visualizer.tls=true"
+        - "traefik.http.routers.visualizer.tls.certresolver=production"
+        - "traefik.http.middlewares.test-ipwhitelist.ipwhitelist.sourcerange=0.0.0.0/0"
+        - "visualizer.autoupdate=true"
+
     networks:
       - huma-in
 
@@ -119,4 +158,3 @@ secrets:
     external: true
   db_password:
     external: true
-
